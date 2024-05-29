@@ -11,6 +11,8 @@
     <h2>NQ Nguyen</h2>
     <div class="paragraph-container">
         <p>This map uses Yelp API data to show Asian cafe's in the Atlanta, Georgia region.
+            The basemap is is the standard street map from Mapbox and I chose this because
+            it's a simple and visually appealing basemap that shows the routes to these cafes
             I used the Yelp API Crawler from the previous GEOG450 class and modified it to
             take the data I wanted. I chose this because I visit my family frequently and I
             thought it would be cool to map out a variety of cafes/restaurants to take my family to
@@ -20,7 +22,11 @@
             interactive slider that filters out businesses based on if they meet a certain rating
             threshold. I also added county boundaries to visualize where highly-rated cafes
             were in each county and added lines showing how far my family members live
-            away from the family home. All the layers are toggleable and the markers show pop-up content about the cafes.</p>
+            away from the family home. All the layers are toggleable and the markers show pop-up content about the cafes.
+            I also made it so you're able to interactively click on two points and calculate the distance in miles
+            between the two points. I originally wanted to make it so that it would take the road routes into account,
+            but I haven't been able to yet. I hope to eventually expand this map into something greater by
+            editing the ease of usability.</p>
     </div>  
     <div id="map"></div>
     <script src="https://unpkg.com/leaflet@1.6.0/dist/leaflet.js"></script>

@@ -23,7 +23,6 @@ countyBoundaries.addTo(map);
 // I used the Yelp API Web Scraper from the previous GEOG450 class and modified it to get data for my own use
 var cafeLayer = new L.GeoJSON.AJAX('assets/myData.geojson', {
     pointToLayer: function (feature, latlng) {
-        // Define custom colors based on rating
         var rating = feature.properties.rating;
         var color;
         if (rating >= 4.5) {
@@ -45,7 +44,6 @@ var cafeLayer = new L.GeoJSON.AJAX('assets/myData.geojson', {
         });
     },
     onEachFeature: function (feature, layer) {
-        // Customize popups for each feature
         if (feature.properties && feature.properties.name) {
             // Check if the marker is visible (opacity > 0)
             if (layer.options.opacity > 0) {
@@ -56,9 +54,81 @@ var cafeLayer = new L.GeoJSON.AJAX('assets/myData.geojson', {
                                 '<br> Address: ' + feature.properties.address + ', ' + feature.properties.postcode);
             }
         }
+        layer.on('click', function (e) {
+            onMarkerClick(e, feature.properties.name);
+        });
     }
 });
 cafeLayer.addTo(map);
+
+// Calculate distance between two points
+var selectedMarkers = [];
+var selectedNames = [];
+var line;
+var popup = L.popup();
+var distanceCalculationEnabled = false;
+
+var DistanceToggleControl = L.Control.extend({
+    onAdd: function(map) {
+        var container = L.DomUtil.create('div', 'leaflet-bar leaflet-control leaflet-control-custom');
+        var btn = L.DomUtil.create('button', 'distance-toggle-button', container);
+        btn.innerHTML = 'Enable Distance Calculation';
+        btn.style.backgroundColor = 'white';
+        btn.style.padding = '5px';
+
+        L.DomEvent.on(btn, 'click', function() {
+            distanceCalculationEnabled = !distanceCalculationEnabled;
+            btn.innerHTML = distanceCalculationEnabled ? 'Disable Distance Calculation' : 'Enable Distance Calculation';
+            if (!distanceCalculationEnabled && line) {
+                map.removeLayer(line);
+            }
+        });
+
+        return container;
+    }
+});
+
+var distanceToggleControl = new DistanceToggleControl({ position: 'bottomleft' });
+map.addControl(distanceToggleControl);
+
+function onMarkerClick(e, name) {
+    if (!distanceCalculationEnabled) {
+        return;
+    }
+
+    selectedMarkers.push(e.latlng);
+    selectedNames.push(name);
+
+    if (selectedMarkers.length === 2) {
+        var distance = calculateDistance(selectedMarkers[0], selectedMarkers[1]);
+        drawLine(selectedMarkers[0], selectedMarkers[1], distance, selectedNames[0], selectedNames[1]);
+        selectedMarkers = [];
+        selectedNames = [];
+    }
+}
+
+function calculateDistance(latlng1, latlng2) {
+    // distance in meters
+    var distanceInMeters = latlng1.distanceTo(latlng2);
+    // meters to miles
+    var distanceInMiles = distanceInMeters / 1609;
+    return distanceInMiles;
+}
+
+function drawLine(latlng1, latlng2, distance, name1, name2) {
+    if (line) {
+        map.removeLayer(line);
+    }
+    
+    line = L.polyline([latlng1, latlng2], {color: 'black'}).addTo(map);
+    
+    var midLatLng = [(latlng1.lat + latlng2.lat) / 2, (latlng1.lng + latlng2.lng) / 2];
+    
+    popup
+        .setLatLng(midLatLng)
+        .setContent('<strong>' + name1 + '</strong> to <strong>' + name2 + '</strong><br>Distance: ' + distance.toFixed(2) + ' miles')
+        .openOn(map);
+}
 
 // Lines
 var lineFeatures = L.featureGroup().addTo(map);
@@ -128,48 +198,48 @@ var polyline = L.polyline(coordinates, { color: 'blue', weight: 3 }).bindPopup(p
 lineFeatures.addLayer(polyline);
 });
 
-// Create a control for the line features with a toggle option
+// line features with a toggle option
 var overlays = {
 "Line from Grandma's house to school": lineFeatures,
 "County Boundaries": countyBoundaries,
 "Cafes/Restaurants": cafeLayer
 };
 
-// Add the control to the map
+// control to the map
 L.control.layers(null, overlays).addTo(map);
 
-// Function to filter cafes based on rating
+// filter cafes based on rating
 function filterCafes(rating) {
     cafeLayer.eachLayer(function (layer) {
         var cafeRating = layer.feature.properties.rating;
         if (cafeRating >= rating) {
-            layer.setStyle({ fillOpacity: 0.8, color: '#000' }); // Show cafes with rating >= slider value
+            layer.setStyle({ fillOpacity: 0.8, color: '#000' }); // show cafes with rating >= slider value
         } else {
-            layer.setStyle({ fillOpacity: 0, color: 'none' }); // Hide cafes with rating < slider value
+            layer.setStyle({ fillOpacity: 0, color: 'none' }); // hide cafes with rating < slider value
         }
     });
 }
 
-// Create a custom control for the rating slider
+// custom control for the rating slider
 var ratingControl = L.control({ position: 'bottomleft' });
 
 ratingControl.onAdd = function (map) {
-    var div = L.DomUtil.create('div', 'slider-control'); // Create a container div
+    var div = L.DomUtil.create('div', 'slider-control');
     div.innerHTML = '<rating>Rating Slider:</rating>' +
                     '<input type="range" id="ratingSlider" min="0" max="5" step="0.1" value="0">' +
                     '<span id="currentRating">0</span>';
 
     L.DomEvent.disableClickPropagation(div);
 
-    // Add an event listener to the slider
+    // event listener to the slider
     var ratingSlider = div.querySelector('#ratingSlider');
     var currentRatingDisplay = div.querySelector('#currentRating');
 
     ratingSlider.addEventListener('input', function () {
-        // Current slider value
+        // current value
         var selectedRating = parseFloat(ratingSlider.value);
 
-        // Update rating display
+        // update rating text
         currentRatingDisplay.textContent = selectedRating.toFixed(1); // Show one decimal place
 
         // Filter 
@@ -181,7 +251,7 @@ ratingControl.onAdd = function (map) {
             if (rating >= selectedRating) {
                 layer.setStyle({ opacity: 1, fillOpacity: 0.8 });
                 if (!layer.getPopup()) {
-                    // Create the popup dynamically because it wouldn't show up again for some reason
+                    // create the popup dynamically because it wouldn't show up again for some reason
                     layer.bindPopup('<strong>' + feature.properties.name + '</strong>' +
                                     '<br> Rating: ' + feature.properties.rating +
                                     '<br> # of Reviews: ' + feature.properties.reviews +
@@ -208,8 +278,8 @@ ratingControl.addTo(map);
 var legend = L.control({ position: 'bottomright' });
 
 legend.onAdd = function (map) {
-    var div = L.DomUtil.create('div', 'legend'); // Create a container div
-    var labels = ['High Rating (4.5+)', 'Medium Rating (3.0+)', 'Low Rating (>3.0)']; // Customize the labels
+    var div = L.DomUtil.create('div', 'legend');
+    var labels = ['High Rating (4.5+)', 'Medium Rating (3.0+)', 'Low Rating (>3.0)'];
 
     div.innerHTML = '<strong>Yelp Rating</strong><br>'
 
