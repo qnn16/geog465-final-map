@@ -15,23 +15,59 @@
             font-family: Arial;
             font-size: 18px;
         }
-        rating {
+        body {
             text-align: left;
             font-family: Arial;
             font-size: 14px;
         }
+        rating {
+            font-family: Arial;
+            font-size: 16px;
+        }
         #map {
-            width: 100vw;
-            height: 100vh;
+            width: 1000px;
+            height: 800px;
+            margin: auto;
+        }
+        .legend {
+            background-color: white;
+            padding: 10px;
+            border: 1px solid #ccc;
+            font-family: Arial;
+            font-size: 14px;
+        }
+
+        .legend-box {
+            display: inline-block;
+            width: 20px;
+            height: 20px;
+            margin-right: 5px;
+        }
+        .paragraph-container {
+            margin: auto;
+            border: 1px solid #ccc;
+            width: 400px; /* Set your desired width */
+            padding: 10px;
+            background-color: #f9f9f9;
         }
     </style>
 </head>
 <body>
     <h1>Atlanta Asian Cafe/Restaurant Map</h1>
     <h2>NQ Nguyen</h2>
-    <rating>Rating Slider:</rating>
-    <input type="range" id="ratingSlider" min="0" max="5" step="0.1" value="0">
-    <span id="currentRating">0</span>  
+    <div class="paragraph-container">
+        <p>This map uses Yelp API data to show Asian cafe's in the Atlanta, Georgia region.
+            I used the Yelp API Crawler from the previous GEOG450 class and modified it to
+            take the data I wanted. I chose this because I visit my family frequently and I
+            thought it would be cool to map out a variety of cafes/restaurants to take my family to
+            This map was created for my own personal use, however the concept of it applies to
+            anyone interested in the region looking for cafes to visit. I color-coded the markers
+            based on the average Yelp ratings received for each business and created an
+            interactive slider that filters out businesses based on if they meet a certain rating
+            threshold. I also added county boundaries to visualize where highly-rated cafes
+            were in each county and added lines showing how far my family members live
+            away from the family home. All the layers are toggleable.</p>
+    </div>  
     <div id="map"></div>
     <script src="https://unpkg.com/leaflet@1.6.0/dist/leaflet.js"></script>
     <script src="https://unpkg.com/leaflet-ajax/dist/leaflet.ajax.min.js"></script>
@@ -187,41 +223,85 @@
                 }
             });
         }
-        var ratingSlider = document.getElementById('ratingSlider');
-        var currentRatingDisplay = document.getElementById('currentRating');
 
-        ratingSlider.addEventListener('input', function () {
-            // Get the current slider value
-            var selectedRating = parseFloat(ratingSlider.value);
+        // Create a custom control for the rating slider
+        var ratingControl = L.control({ position: 'bottomleft' });
 
-            // Update the display with the current rating
-            currentRatingDisplay.textContent = selectedRating.toFixed(1); // Show one decimal place
+        ratingControl.onAdd = function (map) {
+            var div = L.DomUtil.create('div', 'slider-control'); // Create a container div
+            div.innerHTML = '<rating>Rating Slider:</rating>' +
+                            '<input type="range" id="ratingSlider" min="0" max="5" step="0.1" value="0">' +
+                            '<span id="currentRating">0</span>';
 
-            // Filter the GeoJSON layer based on the selected rating
-            cafeLayer.eachLayer(function (layer) {
-                var feature = layer.feature;
-                var rating = feature.properties.rating;
+            L.DomEvent.disableClickPropagation(div);
 
-                // Show/hide the marker based on the rating
-                if (rating >= selectedRating) {
-                    layer.setStyle({ opacity: 1, fillOpacity: 0.8 });
-                    if (!layer.getPopup()) {
-                        // Create the popup dynamically because it wouldn't show up again for some reason
-                        layer.bindPopup('<strong>' + feature.properties.name + '</strong>' +
-                                        '<br> Rating: ' + feature.properties.rating +
-                                        '<br> # of Reviews: ' + feature.properties.reviews +
-                                        '<br> Location: ' + feature.properties.city + ', ' + feature.properties.state +
-                                        '<br> Address: ' + feature.properties.address + ', ' + feature.properties.postcode);
+            // Add an event listener to the slider
+            var ratingSlider = div.querySelector('#ratingSlider');
+            var currentRatingDisplay = div.querySelector('#currentRating');
+
+            ratingSlider.addEventListener('input', function () {
+                // Current slider value
+                var selectedRating = parseFloat(ratingSlider.value);
+
+                // Update rating display
+                currentRatingDisplay.textContent = selectedRating.toFixed(1); // Show one decimal place
+
+                // Filter 
+                cafeLayer.eachLayer(function (layer) {
+                    var feature = layer.feature;
+                    var rating = feature.properties.rating;
+
+                    // Show/hide the marker based on the rating
+                    if (rating >= selectedRating) {
+                        layer.setStyle({ opacity: 1, fillOpacity: 0.8 });
+                        if (!layer.getPopup()) {
+                            // Create the popup dynamically because it wouldn't show up again for some reason
+                            layer.bindPopup('<strong>' + feature.properties.name + '</strong>' +
+                                            '<br> Rating: ' + feature.properties.rating +
+                                            '<br> # of Reviews: ' + feature.properties.reviews +
+                                            '<br> Location: ' + feature.properties.city + ', ' + feature.properties.state +
+                                            '<br> Address: ' + feature.properties.address + ', ' + feature.properties.postcode);
+                        }
+                    } else {
+                        layer.setStyle({ opacity: 0, fillOpacity: 0 });
+                        if (layer.getPopup()) {
+                            // Remove the popup
+                            layer.unbindPopup();
+                        }
                     }
-                } else {
-                    layer.setStyle({ opacity: 0, fillOpacity: 0 });
-                    if (layer.getPopup()) {
-                        // Remove the popup
-                        layer.unbindPopup();
-                    }
-                }
+                });
             });
-        });
+
+            return div;
+        };
+
+        // Add the control to the map
+        ratingControl.addTo(map);
+
+        // Legend
+        var legend = L.control({ position: 'bottomright' });
+
+        legend.onAdd = function (map) {
+            var div = L.DomUtil.create('div', 'legend'); // Create a container div
+            var labels = ['High Rating (4.5+)', 'Medium Rating (3.0+)', 'Low Rating (>3.0)']; // Customize the labels
+
+            div.innerHTML = '<strong>Yelp Rating</strong><br>'
+
+            for (var i = 0; i < labels.length; i++) {
+                div.innerHTML += '<div class="legend-box" style="background-color:' + getColor(i) + '"></div>' +
+                                '<span>' + labels[i] + '</span><br>';
+            }
+
+            return div;
+        };
+
+        // Add the legend to the map
+        legend.addTo(map);
+
+        function getColor(index) {
+            var colors = ['blue', 'yellow', 'red'];
+            return colors[index];
+        }
     </script>
 </body>
 </html>
